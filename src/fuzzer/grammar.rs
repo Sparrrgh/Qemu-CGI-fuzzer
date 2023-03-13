@@ -1,0 +1,186 @@
+use grammartec::{context::Context, tree::TreeLike};
+use libafl::{generators::NautilusContext, inputs::NautilusInput};
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+
+/// Given a rule name it will generate a tree and unparse the input
+/// It will treturn false if the input is too big for the bound specified
+/// This will modify the NautilusInput provided
+pub fn unparse_bounded_from_rule(
+    context: &NautilusContext,
+    input: &mut NautilusInput,
+    output_vec: &mut Vec<u8>,
+    max_len: usize,
+    rule: &str,
+) -> bool {
+    // Search for the rule non-terminal
+    let ntid = context.ctx.nt_id(rule);
+    // Write in the cloned NautilusInput the tree I need
+    input.tree = context.ctx.generate_tree_from_nt(ntid, max_len);
+    input.unparse(context, output_vec);
+    let old_len = output_vec.len();
+    let new_len = std::cmp::min(old_len, max_len);
+    output_vec.resize(new_len + 1, 0u8);
+    old_len <= max_len
+}
+
+// ref:
+// CGI RFC
+// https://www.rfc-editor.org/rfc/rfc3875
+// mini_httpd implementation
+// https://sources.debian.org/src/mini-httpd/1.30-2/mini_httpd.c/
+
+pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
+    // ref:
+    // https://url.spec.whatwg.org/#fragment-percent-encode-set
+    const FRAGMENT: &AsciiSet = &CONTROLS
+        .add(b' ')
+        .add(b'"')
+        .add(b'<')
+        .add(b'>')
+        .add(b'`')
+        .add(b':');
+
+    // Imitate https://github.com/AFLplusplus/LibAFL/blob/7fd9ac095241da7e65c418eeb69e058e71377f54/libafl/src/generators/nautilus.rs#L30
+    // to not use grammar string
+    let mut ctx = Context::new();
+
+    // This is just so Grammartec doesn't bother me because it can't find the start of the grammar
+    ctx.add_rule("START", b"");
+
+    // POST body
+    // [TODO] This doesn't handle multipart, and other types of input (ex. serialized input)
+    ctx.add_rule("BODY", b"{BODY_PAIR}");
+    ctx.add_rule("BODY", b"{BODY}&{BODY_PAIR}");
+
+    ctx.add_rule("BODY_PAIR", b"{PARAM}%3D{URLENCODED_STRING}");
+    // [APPLICATION SPECIFIC] In the application webproc, there are similarities in use between fields and parames, therefore:
+    ctx.add_rule("BODY_PAIR", b"{FIELD}%3D{URLENCODED_STRING}");
+
+    for param in include_str!("grammar_data/post_params.list").lines() {
+        ctx.add_rule(
+            "PARAM",
+            utf8_percent_encode(param, FRAGMENT).to_string().as_bytes(),
+        );
+    }
+
+    // ENV
+    // [APPLICATION SPECIFIC] For optimization purposes, we should generate only env variables used by the binary
+    ctx.add_rule(
+        "ENV",
+        b"REMOTE_ADDR={REMOTE_ADDR}\0HTTP_HOST={HTTP_HOST}\0REQUEST_METHOD={REQUEST_METHOD}\0SCRIPT_NAME={SCRIPT_NAME}\0CONTENT_LENGTH={CONTENT_LENGTH}\0CONTENT_TYPE={CONTENT_TYPE}\0QUERY_STRING={QUERY_STRING}\0HTTP_COOKIE={HTTP_COOKIE}",
+    );
+
+    // REMOTE_ADDR
+    // I wanted to use a regex for this, but it's too expensive for the final result
+    for ip in [
+        "192.168.0.1",
+        "192.168.1.1",
+        "127.0.0.1",
+        "0.0.0.0",
+        "0:0:0:0:0:0:0:1",
+        "::1",
+        "10.11.12.13",
+        "10.0.0.1",
+        "10.1.1.1",
+        "121.131.141.151",
+    ] {
+        ctx.add_rule("REMOTE_ADDR", ip.as_bytes());
+    }
+
+    // HTTP_HOST
+    ctx.add_rule("HTTP_HOST", b"{STRING}:{PORT}");
+
+    // REQUEST_METHOD
+    for elem in [
+        "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH",
+    ] {
+        ctx.add_rule("REQUEST_METHOD", elem.as_bytes());
+    }
+
+    // SCRIPT_NAME
+    // I'm assuming that every script is in CGI-bin
+    // SCRIPT_NAME could allow a path traversal vulnerability (minihttpd already prevents this tho)
+    // ref: https://www.rfc-editor.org/rfc/rfc3875#section-8.2
+    ctx.add_rule("SCRIPT_NAME", format!("/cgi-bin/{bin_name}").as_bytes());
+
+    // CONTENT_LENGTH
+    ctx.add_rule("CONTENT_LENGTH", b"{INT}");
+
+    // CONTENT_TYPE
+    // https://github.com/danielmiessler/SecLists/blob/master/Discovery/Web-Content/web-all-content-types.txt
+    for line in include_str!("grammar_data/web-all-content-types.list").lines() {
+        ctx.add_rule("CONTENT_TYPE", line.as_bytes());
+    }
+
+    // QUERY_STRING
+    ctx.add_rule("QUERY_STRING", b"{QUERY_PAIR}");
+    // %3D is '&'
+    ctx.add_rule("QUERY_STRING", b"{QUERY_STRING}&{QUERY_PAIR}");
+    // %3D is '='
+    ctx.add_rule("QUERY_PAIR", b"{FIELD}%3D{URLENCODED_STRING}");
+    // [APPLICATION SPECIFIC] In the application webproc, there are similarities in use between fields and parames, therefore:
+    ctx.add_rule("QUERY_PAIR", b"{PARAM}%3D{URLENCODED_STRING}");
+
+    for field in include_str!("grammar_data/get_fields.list").lines() {
+        ctx.add_rule(
+            "FIELD",
+            utf8_percent_encode(field, FRAGMENT).to_string().as_bytes(),
+        );
+    }
+
+    // HTTP_COOKIE
+    ctx.add_rule(
+        "HTTP_COOKIE",
+        b"sessionid={STRING};language={STRING};sys_UserName={STRING};",
+    );
+
+    // ----Base types----
+    // [TODO] Check if enough
+    for i in 0..u16::MAX {
+        ctx.add_rule("POS_INT", format!("{i}").as_bytes());
+    }
+
+    ctx.add_rule("INT", b"{POS_INT}");
+    ctx.add_rule("INT", b"-{POS_INT}");
+
+    // This goes way beyond the allowed port number, do we care?
+    // [TODO] Check
+    ctx.add_rule("PORT", b"{INT}");
+
+    ctx.add_rule("STRING", b"{STRING}{STRING}");
+    ctx.add_rule("STRING", b"{NAUGHTY_STRING}");
+
+    ctx.add_rule(
+        "URLENCODED_STRING",
+        b"{URLENCODED_STRING}{URLENCODED_STRING}",
+    );
+    ctx.add_rule("URLENCODED_STRING", b"{URLENCODED_NAUGHTY}");
+
+    // Strings taken directly form the binary with `strings`
+    for bin_string in include_str!("grammar_data/bin_strings.list").lines() {
+        ctx.add_rule("STRING", bin_string.as_bytes());
+        // What happens if it's not utf8?
+        ctx.add_rule(
+            "URLENCODED_STRING",
+            utf8_percent_encode(bin_string, FRAGMENT)
+                .to_string()
+                .as_bytes(),
+        );
+    }
+
+    // Some naughty strings, some taken from https://github.com/andreafioraldi/libafl_quickjs_fuzzing/blob/master/grammar.json
+    for naughty_string in include_str!("grammar_data/naughty_strings.list").lines() {
+        ctx.add_rule("NAUGHTY_STRING", naughty_string.as_bytes());
+        // What happens if it's not utf8?
+        ctx.add_rule(
+            "URLENCODED_NAUGHTY",
+            utf8_percent_encode(naughty_string, FRAGMENT)
+                .to_string()
+                .as_bytes(),
+        );
+    }
+    // ----Base types----
+
+    ctx.initialize(tree_depth);
+    NautilusContext { ctx }
+}

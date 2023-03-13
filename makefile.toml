@@ -1,0 +1,58 @@
+# composite tasks
+[tasks.clean]
+dependencies = ["clean-cargo", "clean-build-dir"]
+
+[tasks.build]
+command = "true"
+args = []
+dependencies = [
+    "build-directories",
+    "build-cargo",
+    "copy-project-to-build",
+]
+
+# clean up task
+[tasks.clean-cargo]
+command = "cargo"
+args = ["clean"]
+
+[tasks.clean-build-dir]
+command = "rm"
+args = ["-rf", "build/"]
+
+# build tasks
+[tasks.build-cargo]
+toolchain = "nightly"
+env = { CROSS_CC = "mips-linux-gnu-gcc" }
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.build-directories]
+command = "mkdir"
+args = ["-p", "corpus", "crashes", "build", "build/bin"]
+
+# [TODO] Check
+[tasks.copy-project-to-build]
+command = "cp"
+args = [
+    "target/release/qemu_mips_cgi",
+    "target/release/qemu-libafl-bridge/build/libqemu-mips.so",
+    "target/release/libqasan.so",
+    "build/",
+]
+
+ 
+# Clippy task
+[tasks.clippy]
+command = "true"
+args = []
+dependencies = [
+    "build-directories",
+    "clippy-cargo",
+    "copy-project-to-build",
+]
+
+[tasks.clippy-cargo]
+env = { CROSS_CC = "mips-linux-gnu-gcc" }
+command = "cargo"
+args = ["clippy", "--all"]

@@ -1,0 +1,315 @@
+REMOTE_ADDR
+var:sys_RemoteAddr
+var:sys_CurrentTime
+var:sys_Token
+HTTP_HOST
+obj-action
+auth
+var:sessionid
+ajax
+var:noredirect
+%s%s=%s
+var:
+var:CacheLastData
+var:mod_
+var:sys_
+Sessionid create error. Exiting...
+SCRIPT_NAME
+Status: 302
+Content-type: text/html
+Pragma: no-cache
+Cache-Control: no-cache
+X-Frame-Options: SAMEORIGIN
+set-cookie: sessionid=%s;HttpOnly
+set-cookie: auth=ok;path=/; secure; HttpOnly
+Location: %s%s
+:8000
+html/main.html
+new_web/index.asp
+.html
+Content-type: text/html
+X-Frame-Options: SAMEORIGIN
+Cache-Control: no-cache
+set-cookie: sessionid=%s;HttpOnly
+set-cookie: auth=%s;path=/cgi-bin/; secure; HttpOnly
+set-cookie: expires=Sun, 15-May-9999 01:45:46 GMT; HttpOnly
+Content-type: application/x-javascript
+X-Frame-Options: SAMEORIGIN
+Cache-Control: no-cache
+set-cookie: sessionid=%s;HttpOnly
+set-cookie: auth=%s;path=/cgi-bin/; secure; HttpOnly
+set-cookie: expires=Sun, 15-May-9999 01:45:46 GMT; HttpOnly
+Content-type: text/html
+Error. Accessing pstPage outside of html tree. Exiting.
+Error. %s
+//Pagefile open failed(File:%s, PWD:%s)
+Command too big for buffer. Exiting
+new_web/Login.asp
+new_web/get/index.cgi
+new_web/mobile/index.asp
+new_web/mobile/login.asp
+new_web/ChgLang.asp
+/usr/www/%s
+var:menu
+var:subpage
+var:page
+factory_mode
+/usr/www/html/page/%s.%s
+html
+/usr/www/webAuth.xml
+%d %s
+html/page/twrouteinfo.html
+admin
+===default password===
+POST
+control
+httpmethod
+tokenid
+pstPage
+Send AUTH-POST msg failed!(%s)
+WEB_Post::WEB_GetResponse timeout
+Timeout on post response
+Communication Error1
+result=%4u%4u
+level=
+var:sys_UserLevel
+account_index=
+var:sys_UserIndex
+session_id=
+token_id=
+result=
+var:sys_UserName
+Anonymous
+var:mod_5GWIFI
+var:mod_ETHLAN
+var:mod_LOGGER
+var:mod_WANMIRROR
+var:mod_ETHWAN
+var:mod_IPCONN
+var:mod_IP_ACL
+var:mod_ACL
+var:mod_DROUTE
+var:mod_ALG
+var:mod_LOGOUT
+var:mod_LAN
+var:mod_WLAN_SCHEDULE
+var:mod_PROUTE
+var:mod_WLAN_MIMO_3X3
+var:mod_WPS_V2
+var:mod_DSL
+var:mod_ANTIATTACK
+var:mod_DNS
+var:mod_PPP_RETRY
+var:mod_WAN
+var:mod_IPT
+var:mod_WDS
+var:mod_QOS
+var:mod_SUPPORT_CPUUSAGE
+var:mod_WPS
+var:mod_DEVINFO
+var:mod_TRACERT
+var:mod_DIAG
+var:mod_ClubWifi
+var:mod_URL_FILTER
+var:mod_IPPMNGR
+var:mod_TRADITIONALNAT
+var:mod_ACL_TTG
+var:mod_DLNA
+var:mod_TF_IGMP
+var:mod_DDNS
+var:mod_FTPD
+var:mod_PING
+var:mod_WPS_LED
+var:mod_AUTH
+var:mod_WLAN
+var:mod_ATMF5DNG
+var:mod_VDSL
+var:mod_QOS_IMQ
+var:mod_TR069_PASSWORD_Default
+var:mod_PPPOE_PASSTHROUGH
+var:mod_TR143
+var:mod_DHCPS_OPTION125
+var:mod_UPNP
+var:mod_SNTP
+var:mod_TR069
+var:mod_SCHEDULE
+var:mod_STATIC_ROUTING
+var:mod_PORTMAPPING
+var:mod_REDIRECT
+var:mod_FIREWALL
+var:mod_PORTTRIGGER
+var:mod_TR069DIAG
+var:mod_TF_SAMBA
+var:mod_IPFILTER
+var:mod_SAMBA
+var:mod_LAN_VLAN
+var:mod_MT7510
+var:mod_DHCPR
+var:mod_USB_MULTI_USER
+var:mod_DHCPS
+var:mod_FTPD_TBS
+var:mod_DEFAULT_GATEWAY
+var:mod_USB_MASS
+var:mod_WEBPROXY
+var:mod_SNMPC
+var:mod_PPPOE
+var:mod_MACFILTER
+var:mod_DHCPS_FILTER
+var:mod_INTERNET_LED
+led_test_on
+protest --led -on
+led_test_off
+protest --led -off
+[WEB]: WEB_PostSave malloc failed!
+Send %04x-POST msg failed!
+Communication Error3
+Got unrespect response
+%04u%04u
+add-obj
+No object name to be added!
+Send ADD-POST msg failed!(%s)
+Communication Error2
+var:newobjindex
+del-obj
+No object name to be deleted!
+Send DEL-POST msg failed!(%s)
+InternetGatewayDevice.X_TWSZ-COM_Authentication.UserList.1.Password
+%s=%s:%s
+@&~*admin:
+%s=%s
+@&~*wifi:
+@&~*tr069:
+@&~*dynamicDNS:
+@&~*sambaftp:
+@&~*ppp:
+Send SET-POST msg failed!(%s)
+Got unrespect response(%d)
+No object name to be del!
+Send ADD-SET-POST msg failed!(%s)
+%s%lu.%s=%s
+%s%lu.
+postvalue2
+httpmethod=GET
+logincount=
+result=logincount1
+result=logincount2
+result=logincount3
+Send POST msg failed!(%s:%s)
+save
+recover
+del
+add
+set
+reboot
+del-add-set
+add-set
+led_test
+de_de
+fr_fr
+es_es
+it_it
+en_us
+var:sys_SupportLangs
+REQUEST_METHOD
+HEAD
+QUERY_STRING
+CONTENT_TYPE
+application/x-www-form-urlencoded
+Content-Type: text/plain
+WEB_GetCgiVars(): Unsupported Content-Type.
+WEB_GetCgiVars(): Unsupported Content-Type.application/x-www-form-urlencoded
+web_cgi.c
+CONTENT_LENGTH
+WEB_GetCgiVars(): No Content-Length was sent with the POST request.
+WEB_GetCgiVars(): Couldn't malloc for pszReqContent.
+WEB_GetCgiVars(): Couldn't read CGI input from STDIN.
+WEB_GetCgiVars(): Unsupported REQUEST_METHOD.
+WEB_GetCgiVars(): Unsupported REQUEST_METHOD: '%s'
+WEB_GetCgiVars(): NodeValue or NodeName error
+InternetGatewayDevice
+[zym]szMenu=%s
+[zym]szPage=%s
+var:landCurrentPage
+HTTP_COOKIE
+var:language
+script
+var:nextpage
+var:getpage
+var:errorpage
+WEB_GetEnv(): Unsupported URL.
+WEB_GetEnv(): Unsupported URL
+<script
+script>
+<iframe
+alert(
+setup
+advanced
+maintenance
+status
+help
+web_cmd.c
+Error with variable replace
+`setvar` (the number of paramers error!)
+echo
+mget
+objget
+setvaronce
+setvar
+include
+undefined cmd!
+echo (the number of paramers error!)
+found
+message
+`if` (the number of paramers error!)
+objquery2 (too less paramers)
+objquery (msg get Obj-name failed)
+objquery::Too much Fields,Fields not more than 16 !
+objquery::Get obj val Failed!
+get (too less parameters)
+get (out of memory)
+Get::Get obj val Failed!
+Get::Get obj val Failed, the return value is NULL!
+`include` (too less paramers)
+web_msg.c
+bad string
+bad buffer
+objquery::No Resource!
+%s%s%s
+objquery::Send Get Val msg Error)
+objquery::Get Val Response Error)
+objquery::Get val --Unrespect reponse
+objquery::Get val list failed
+objquery::Get Val num is unrespected
+objquery::Get index Failed!
+no enough buffer
+get::No Resource!
+get::Send Get Val msg Error)
+get::Get Val Response Error)
+get::Get val --Unrespect reponse
+get::Get val list failed
+get::Get val list count error
+get::Get val formaterror
+get::Failed to allocate room for leaf value!
+objquery::Get name - Response Error)
+objquery::get name - unrespect reponse
+objquery::Get index list failed
+objquery::Get index format error!
+Timeout writing to network socket.
+Error writing to network socket.
+/../
+abfnrtv\
+<font color=red>--Internal Error: %s</font><br/>
+web_mark.c
+/proc/uptime
+List: 
+'%s'='%s', 
+../omlib/om_buffer.c
+REQUEST_METHOD
+QUERY_STRING
+getpage=html/main.html
+CONTENT_TYPE
+application/x-www-form-urlencoded
+CONTENT_LENGTH
+PATH_INFO
+/cgi-bin/webproc
+SCRIPT_NAME
