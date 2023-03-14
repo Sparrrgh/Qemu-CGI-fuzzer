@@ -12,8 +12,9 @@ use libafl_qemu::{
 };
 
 use crate::fuzzer::grammar;
-// [TODO] Find max body size
-const MAX_BODY_SIZE: usize = 256;
+
+// There isn't a specified max POST body size, but it seems the maximum allowed is around 2GB
+const MAX_BODY_SIZE: usize = 2147483648; // 2**31 bytes = 2GB
 
 /// wrapper around general purpose register resets, mimics AFL_QEMU_PERSISTENT_GPR
 ///   ref: https://github.com/AFLplusplus/AFLplusplus/blob/stable/qemu_mode/README.persistent.md#24-resetting-the-register-state
@@ -91,15 +92,12 @@ where
     }
 
     /// prepare helper for fuzz case; called before every fuzz case
-    fn pre_exec(&mut self, _emulator: &Emulator, input: &NautilusInput) {
+    fn pre_exec(&mut self, _emulator: &Emulator, _input: &NautilusInput) {
         let mut output_vec = vec![];
         // I trim for large inputs
         // [TODO] Is there a way to outright refuse the fuzzcase?
-        // I don't need a clone here, but...
-        let mut modified_input = input.clone();
         let buf: &[u8] = if !grammar::unparse_bounded_from_rule(
             &self.context,
-            &mut modified_input,
             &mut output_vec,
             MAX_BODY_SIZE,
             "BODY",

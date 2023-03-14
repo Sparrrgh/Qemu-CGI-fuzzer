@@ -4,18 +4,17 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
 /// Given a rule name it will generate a tree and unparse the input
 /// It will treturn false if the input is too big for the bound specified
-/// This will modify the NautilusInput provided
 pub fn unparse_bounded_from_rule(
     context: &NautilusContext,
-    input: &mut NautilusInput,
     output_vec: &mut Vec<u8>,
     max_len: usize,
     rule: &str,
 ) -> bool {
     // Search for the rule non-terminal
     let ntid = context.ctx.nt_id(rule);
-    // Write in the cloned NautilusInput the tree I need
-    input.tree = context.ctx.generate_tree_from_nt(ntid, max_len);
+    // Create my input from context
+    let tree = context.ctx.generate_tree_from_nt(ntid, max_len);
+    let input = NautilusInput::new(tree);
     input.unparse(context, output_vec);
     let old_len = output_vec.len();
     let new_len = std::cmp::min(old_len, max_len);
@@ -30,6 +29,7 @@ pub fn unparse_bounded_from_rule(
 // https://sources.debian.org/src/mini-httpd/1.30-2/mini_httpd.c/
 
 pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
+    println!("Building grammar, please wait\nIf this takes too long, it might make sense to reduce the number of ints generated");
     // ref:
     // https://url.spec.whatwg.org/#fragment-percent-encode-set
     const FRAGMENT: &AsciiSet = &CONTROLS
@@ -135,8 +135,9 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     );
 
     // ----Base types----
-    // [TODO] Check if enough
-    for i in 0..u16::MAX {
+    // On my laptop it takes a long time to create the grammar with u32
+    // On the server it might be worth to wait those few minutes on a long campaign
+    for i in 0..u32::MAX {
         ctx.add_rule("POS_INT", format!("{i}").as_bytes());
     }
 
@@ -144,7 +145,6 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     ctx.add_rule("INT", b"-{POS_INT}");
 
     // This goes way beyond the allowed port number, do we care?
-    // [TODO] Check
     ctx.add_rule("PORT", b"{INT}");
 
     ctx.add_rule("STRING", b"{STRING}{STRING}");

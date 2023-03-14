@@ -136,14 +136,12 @@ pub fn fuzz() -> Result<(), Error> {
     // Component: Harness
     //
 
-    let mut harness = |input: &NautilusInput| {
+    let mut harness = |_input: &NautilusInput| {
         let mut buf = vec![];
-        let mut modified_input = input.clone();
         let my_envp_write = my_envp + env_start.len() as u32;
         // Skip large inputs
         if !grammar::unparse_bounded_from_rule(
             &context,
-            &mut modified_input,
             &mut buf,
             MAX_ENV_SIZE - env_start.len(),
             "ENV",
@@ -270,7 +268,8 @@ pub fn fuzz() -> Result<(), Error> {
             )
             .unwrap()
         });
-        // [TODO] Check this /dev/shm/ stuff
+
+        // Save metadata in tmpfs
         if state.metadata().get::<NautilusChunksMetadata>().is_none() {
             state.add_metadata(NautilusChunksMetadata::new("/dev/shm/".into()));
         }
