@@ -8,7 +8,8 @@ args = []
 dependencies = [
     "build-directories",
     "build-cargo",
-    "copy-project-to-build",
+    "copy-lib-to-build",
+    "copy-bin-to-build"
 ]
 
 # clean up task
@@ -29,19 +30,23 @@ args = ["build", "--release"]
 
 [tasks.build-directories]
 command = "mkdir"
-args = ["-p", "corpus", "crashes", "build", "build/bin"]
+args = ["-p", "corpus", "crashes", "build", "build/lib", "build/bin"]
 
-# [TODO] Check
-[tasks.copy-project-to-build]
+[tasks.copy-lib-to-build]
+command = "cp"
+args = [
+    "target/release/qemu-libafl-bridge/build/libqemu-mips.so",
+    "target/release/libqasan.so",
+    "build/lib",
+]
+
+[tasks.copy-bin-to-build]
 command = "cp"
 args = [
     "target/release/qemu_mips_cgi",
-    "target/release/qemu-libafl-bridge/build/libqemu-mips.so",
-    "target/release/libqasan.so",
-    "build/",
+    "build/bin",
 ]
 
- 
 # Clippy task
 [tasks.clippy]
 command = "true"
