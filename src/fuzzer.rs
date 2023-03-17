@@ -77,8 +77,8 @@ pub fn fuzz() -> Result<(), Error> {
     let mut env: Vec<(String, String)> = env::vars().collect();
 
     // create an Emulator which provides the methods necessary to interact with the emulated target
-    let emu = libafl_qemu::init_with_asan(&mut fuzzer_options.qemu_args, &mut env);
-    // let emu = Emulator::new(&mut fuzzer_options.qemu_args, &mut env);
+    // let emu = libafl_qemu::init_with_asan(&mut fuzzer_options.qemu_args, &mut env);
+    let emu = libafl_qemu::Emulator::new(&mut fuzzer_options.qemu_args, &mut env);
 
     // load our fuzz target from disk, the resulting `EasyElf` is used to do symbol lookups on  the
     // binary. It handles address resolution in the case of PIE as well.
@@ -93,11 +93,15 @@ pub fn fuzz() -> Result<(), Error> {
     // command line stuff every time, we'll run until main, and then set our entrypoint to be past
     // the getopt stuff by adding a static offset found by looking at the disassembly. This is the
     // same concept as using AFL_ENTRYPOINT.
-    let main_ptr = elf.resolve_symbol("main", emu.load_addr()).unwrap();
+
+    // let main_ptr = elf.resolve_symbol("main", emu.load_addr()).unwrap();
+    // [APPLICATION SPECIFIC]
+    // [TODO] Cannot find main in webproc?!
+    let main_ptr = 0x004018d0 as u32;
 
     // point at which we want to stop execution, i.e. after the vulnerable function
-    // [APPLICATION SPECIFIC
-    let ret_addr = main_ptr + 0x18;
+    // [APPLICATION SPECIFIC]
+    let ret_addr = main_ptr + 0x9f0;
 
     // set a breakpoint on the function of interest and emulate execution until we arrive there
     emu.set_breakpoint(main_ptr);
@@ -305,10 +309,10 @@ pub fn fuzz() -> Result<(), Error> {
                 QemuGPRegisterHelper::new(&emu),
                 // There isn't really an alternative to this, since context has to be a static borrow
                 QemuFakeStdinHelper::new(context.ctx.clone()),
-                QemuAsanHelper::new(
-                    QemuInstrumentationFilter::None,
-                    QemuAsanOptions::DetectLeaks
-                ),
+                // QemuAsanHelper::new(
+                //     QemuInstrumentationFilter::None,
+                //     QemuAsanOptions::DetectLeaks
+                // ),
             ),
         );
 
