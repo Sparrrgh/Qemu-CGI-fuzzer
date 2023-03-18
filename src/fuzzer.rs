@@ -97,7 +97,7 @@ pub fn fuzz() -> Result<(), Error> {
     // let main_ptr = elf.resolve_symbol("main", emu.load_addr()).unwrap();
     // [APPLICATION SPECIFIC]
     // [TODO] Cannot find main in webproc?!
-    let main_ptr = 0x004018d0 as u32;
+    let main_ptr = 0x004018d0_u32;
 
     // point at which we want to stop execution, i.e. after the vulnerable function
     // [APPLICATION SPECIFIC]

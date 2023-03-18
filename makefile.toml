@@ -54,7 +54,6 @@ args = []
 dependencies = [
     "build-directories",
     "clippy-cargo",
-    "copy-project-to-build",
 ]
 
 [tasks.clippy-cargo]
