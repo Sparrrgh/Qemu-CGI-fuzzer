@@ -1,14 +1,15 @@
-use std::process;
+use std::{env, path::PathBuf, process, str};
 
 use grammartec::context::Context;
 use libafl::{
+    executors::ExitKind,
     generators::NautilusContext,
     prelude::{NautilusInput, UsesInput},
     state::HasMetadata,
 };
 use libafl_qemu::{
-    Emulator, QemuHelper, QemuHelperTuple, QemuHooks, SYS_exit, SYS_exit_group, SYS_read,
-    SyscallHookResult,
+    mips::Regs, Emulator, QemuHelper, QemuHelperTuple, QemuHooks, SYS_creat, SYS_exit,
+    SYS_exit_group, SYS_open, SYS_read, SyscallHookResult,
 };
 
 use crate::fuzzer::grammar;
@@ -19,13 +20,14 @@ const MAX_BODY_SIZE: usize = 2147483648; // 2**31 bytes = 2GB
 /// wrapper around general purpose register resets, mimics AFL_QEMU_PERSISTENT_GPR
 ///   ref: https://github.com/AFLplusplus/AFLplusplus/blob/stable/qemu_mode/README.persistent.md#24-resetting-the-register-state
 #[derive(Default, Debug)]
-pub struct QemuGPRegisterHelper {
+pub struct QemuGPResetHelper {
     /// vector of values representing each registers saved value
     register_state: Vec<u64>,
+    cwd: PathBuf,
 }
 
 /// implement the QemuHelper trait for QemuGPRegisterHelper
-impl<S> QemuHelper<S> for QemuGPRegisterHelper
+impl<S> QemuHelper<S> for QemuGPResetHelper
 where
     S: HasMetadata + UsesInput<Input = NautilusInput>,
 {
@@ -33,17 +35,33 @@ where
     fn pre_exec(&mut self, emulator: &Emulator, _input: &S::Input) {
         self.restore(emulator);
     }
+
+    /// restore PWD after execution
+    fn post_exec<OT>(
+        &mut self,
+        _emulator: &Emulator,
+        _input: &S::Input,
+        _observers: &mut OT,
+        _exit_kind: &mut ExitKind,
+    ) {
+        env::set_current_dir(&self.cwd).is_ok();
+    }
 }
 
 /// QemuGPRegisterHelper implementation
-impl QemuGPRegisterHelper {
+impl QemuGPResetHelper {
     /// given an `Emulator`, save off all known register values
     pub fn new(emulator: &Emulator) -> Self {
         let register_state = (0..emulator.num_regs())
             .map(|reg_idx| emulator.read_reg(reg_idx).unwrap_or(0))
             .collect::<Vec<u64>>();
 
-        Self { register_state }
+        let cwd = env::current_dir().unwrap();
+
+        Self {
+            register_state,
+            cwd,
+        }
     }
 
     /// restore emulator's registers to previously saved values
@@ -139,20 +157,39 @@ where
     QT: QemuHelperTuple<S>,
     S: UsesInput<Input = NautilusInput>,
 {
+    // [TODO] Hook open so it doesn't read from root!
     let syscall = syscall as i64;
-    if syscall == SYS_exit || syscall == SYS_exit_group {
+    match syscall {
         // since calls to exit are verboten, hook the relevant syscalls and abort instead
-        process::abort();
-    } else if syscall == SYS_read {
-        // man read:
-        //
-        //   ssize_t read(int fd, void *buf, size_t count);
-        //
-        //   On  success, the number of bytes read is returned (zero indicates end of file)
-        //   On error, -1 is returned, and errno is set appropriately.
-
+        SYS_exit | SYS_exit_group => {
+            process::abort();
+        }
+        // Don't let the fuzzer create or open files outside of the `/build` folder
+        // SYS_open | SYS_creat => {
+        //     let path_addr = hooks.emulator().read_reg(Regs::A0).unwrap();
+        //     let mut path = [0; 256];
+        //     unsafe {
+        //         hooks.emulator().read_mem(path_addr, &mut path);
+        //     }
+        //     if path[0] == b'/' {
+        //         let cwd = env::current_dir()
+        //             .unwrap()
+        //             .into_os_string()
+        //             .into_string()
+        //             .unwrap();
+        //         let new_root = cwd.strip_suffix("/usr/www/cgi-bin").unwrap();
+        //         let path_utf8 = str::from_utf8(&path).unwrap();
+        //         let new_path = format!("{new_root}{path_utf8}");
+        //         unsafe {
+        //             hooks
+        //                 .emulator()
+        //                 .write_mem(path_addr, &mut new_path.as_bytes());
+        //         }
+        //     }
+        //     SyscallHookResult::new(None)
+        // }
         // If stdin
-        if a0 == 0 {
+        sysnum if (sysnum == SYS_read && a0 == 0) => {
             let fs_helper = hooks
                 .helpers_mut()
                 .match_first_type_mut::<QemuFakeStdinHelper>()
@@ -186,11 +223,7 @@ where
             }
 
             SyscallHookResult::new(Some(drained.len() as u64))
-        // Drain<u8> dropped here, our buffer now has only what remains of the original u8's
-        } else {
-            SyscallHookResult::new(None) // all other syscalls pass through unaltered
         }
-    } else {
-        SyscallHookResult::new(None) // all other syscalls pass through unaltered
+        _ => SyscallHookResult::new(None), // all other syscalls pass through unaltered
     }
 }

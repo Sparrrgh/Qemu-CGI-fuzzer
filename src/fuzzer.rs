@@ -42,7 +42,7 @@ use libafl_qemu::{
 pub mod grammar;
 
 mod helpers;
-use helpers::{QemuFakeStdinHelper, QemuGPRegisterHelper};
+use helpers::{QemuFakeStdinHelper, QemuGPResetHelper};
 
 /// Assuming the pagesize is 4kb on the device
 const MAX_ENV_SIZE: usize = 131072; // PAGESIZE*32 | 128 kb
@@ -101,23 +101,21 @@ pub fn fuzz() -> Result<(), Error> {
 
     // point at which we want to stop execution, i.e. after the vulnerable function
     // [APPLICATION SPECIFIC]
-    let ret_addr = main_ptr + 0x9f0;
+    // Before module is unregistered
+    let ret_addr = 0x004022c0_u32;
 
     // set a breakpoint on the function of interest and emulate execution until we arrive there
     emu.set_breakpoint(main_ptr);
     unsafe { emu.run() };
-
-    // reset breakpoint from start of the function to the place we want to stop, registers will
-    // all be saved off in `QemuGPRegisterHelper::pre_exec`
     emu.remove_breakpoint(main_ptr);
-    emu.set_breakpoint(ret_addr);
 
     // Reserve space for the enviroment variables set by the harness
     let my_envp = emu
         .map_private(0, MAX_ENV_SIZE, MmapPerms::ReadWrite)
         .unwrap();
-    let cwd = env::current_dir()?.into_os_string().into_string().unwrap();
-    let env_start = format!("LD_PRELOAD={cwd}/build/libqasan.so\0_=./build/qemu_mips_cgi\0");
+    // let cwd = env::current_dir()?.into_os_string().into_string().unwrap();
+    // let env_start = format!("LD_PRELOAD={cwd}/build/libqasan.so\0_=./build/qemu_mips_cgi\0");
+    let env_start = format!("_=./build/qemu_mips_cgi\0");
 
     // Prepare some of the indexes to later use in the harness
     let env_start_indexes = [0]
@@ -135,6 +133,10 @@ pub fn fuzz() -> Result<(), Error> {
     unsafe {
         emu.write_mem(my_envp, env_start.as_bytes());
     }
+
+    // reset breakpoint from start of the function to the place we want to stop, registers will
+    // all be saved off in `QemuGPRegisterHelper::pre_exec`
+    emu.set_breakpoint(ret_addr);
 
     //
     // Component: Harness
@@ -179,8 +181,10 @@ pub fn fuzz() -> Result<(), Error> {
             emu.write_mem(my_envp_write, &buf);
             emu.run();
         };
+
         ExitKind::Ok
     };
+
     //
     // Component: Client Runner
     //
@@ -306,7 +310,7 @@ pub fn fuzz() -> Result<(), Error> {
             &emu,
             tuple_list!(
                 QemuEdgeCoverageHelper::new(QemuInstrumentationFilter::None),
-                QemuGPRegisterHelper::new(&emu),
+                QemuGPResetHelper::new(&emu),
                 // There isn't really an alternative to this, since context has to be a static borrow
                 QemuFakeStdinHelper::new(context.ctx.clone()),
                 // QemuAsanHelper::new(
