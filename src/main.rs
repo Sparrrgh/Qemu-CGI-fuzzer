@@ -4,7 +4,19 @@ mod fuzzer;
 
 #[cfg(target_os = "linux")]
 pub fn main() {
-    fuzzer::fuzz();
+    let args: Vec<_> = std::env::args().collect();
+    if std::env::args().find(|a| a == "--repro").is_some() {
+        let bin_name = args[2].clone();
+        let crash_dir = args[3].clone();
+        println!("Launched with {bin_name} {crash_dir}");
+        let context = fuzzer::grammar::get_cgi_context(5, bin_name.clone());
+        fuzzer::grammar::create_concrete_outputs(
+            &context,
+            std::path::PathBuf::from(crash_dir.clone()),
+        );
+    } else {
+        fuzzer::fuzz();
+    }
 }
 
 #[cfg(not(target_os = "linux"))]

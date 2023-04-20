@@ -4,10 +4,6 @@ version = "0.9.0"
 authors = ["Max Bellia <ma.bellia.98@gmail.com>"]
 edition = "2021"
 
-[features]
-default = ["std"]
-std = []
-
 [profile.release]
 #lto = true
 #codegen-units = 1
@@ -15,7 +11,7 @@ std = []
 debug = true
 
 [dependencies]
-libafl = { path = "../../libafl/", features = ["qemu_cli", "std", "nautilus"]}
+libafl = { path = "../../libafl/", features = ["default", "nautilus", "qemu_cli"]}
 libafl_qemu = { path = "../../libafl_qemu/", features = ["mips", "be", "usermode"] }
 rangemap = "1.0.3"
 grammartec = "0.3.0"

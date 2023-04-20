@@ -66,7 +66,7 @@ pub fn fuzz() -> Result<(), Error> {
     let input_corpus = OnDiskCorpus::new(fuzzer_options.output.join("queue"))?;
 
     // corpus in which we store solutions on disk so we can get them after stopping the fuzzer
-    let solutions_corpus = OnDiskCorpus::new(fuzzer_options.output)?;
+    let solutions_corpus = OnDiskCorpus::new(fuzzer_options.output.clone())?;
 
     //
     // Component: Emulator

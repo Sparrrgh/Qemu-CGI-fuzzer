@@ -1,5 +1,10 @@
+use std::path::PathBuf;
+
 use grammartec::{context::Context, tree::TreeLike};
-use libafl::{generators::NautilusContext, inputs::NautilusInput};
+use libafl::{
+    generators::NautilusContext,
+    inputs::{Input, NautilusInput},
+};
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
 /// Given a rule name it will generate a tree and unparse the input
@@ -20,6 +25,34 @@ pub fn unparse_bounded_from_rule(
     let new_len = std::cmp::min(old_len, max_len);
     output_vec.resize(new_len + 1, 0u8);
     old_len <= max_len
+}
+
+// Take the entire output directory, copy all files over to a concrete directory.
+pub fn create_concrete_outputs(context: &NautilusContext, crash_dir: PathBuf) {
+    let crashes = std::fs::read_dir(crash_dir.clone()).expect("Failed to read crashes");
+    let out_dir = crash_dir.join("concrete");
+    let mut tmp = vec![];
+    for path in crashes {
+        tmp.clear();
+        let path = path.unwrap().path();
+        if path.is_dir() {
+            continue;
+        }
+        let ext = path.extension().unwrap_or_else(|| std::ffi::OsStr::new(""));
+        if ext == "lafl_lock" || ext == "metadata" {
+            continue;
+        }
+        // Check if this file was already converted.
+        let out_file = out_dir.join(path.file_name().unwrap());
+        if !out_file.exists() {
+            let input = NautilusInput::from_file(path).expect("Failed to create NautilusInput");
+            input.unparse(context, &mut tmp);
+            // Remove null terminator before writing to disk
+            tmp.pop();
+            std::fs::write(&out_file, &tmp).expect("Failed to write file contents");
+            println!("Converted {:?}", &out_file);
+        }
+    }
 }
 
 // ref:

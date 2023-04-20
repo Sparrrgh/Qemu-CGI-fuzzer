@@ -3,6 +3,13 @@ CGI fuzzer
 ## To build
 `cargo make --makefile makefile.toml build`
 ## To run
-`LD_LIBRARY_PATH=$(pwd)/build ./build/bin/qemu_mips_cgi --cores 1  --stdout myrealtest.txt -- ./build/bin/qemu_mips_cgi -L $(pwd)/build/ -D morelogging.txt ./build/www/cgi-bin/webproc`
+Have to create `/var/pid`
+cd in `/build/usr/www/cgi-bin/`
+`LD_LIBRARY_PATH=../../../ ./../../../bin/qemu_mips_cgi --cores 1 --stdout ../../../../mylogs3.txt -o ../../../../solutions  -- ./../../../bin/qemu_mips_cgi --strace -L ../../../ -D ../../../../weborig.txt ./webproc`
 
-## Libs
+
+## With no usr in path
+LD_LIBRARY_PATH=../../ ./../../bin/qemu_mips_cgi --cores 10 --stdout ../../../fuzzlogs3.txt -o ../../../solutions  -- ./../../bin/qemu_mips_cgi -L ../../ -D ../../../qemulogs3.txt ./webproc
+
+## Make file concrete
+./build/bin/qemu_mips_cgi --repro webproc solutions
