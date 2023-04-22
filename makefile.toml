@@ -30,7 +30,7 @@ args = ["build", "--release"]
 
 [tasks.build-directories]
 command = "mkdir"
-args = ["-p", "corpus", "crashes", "build", "build/lib", "build/bin"]
+args = ["-p", "build", "build/lib", "build/bin", "solutions", "solutions/concrete"]
 
 [tasks.copy-lib-to-build]
 command = "cp"
