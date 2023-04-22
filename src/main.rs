@@ -5,11 +5,11 @@ mod fuzzer;
 #[cfg(target_os = "linux")]
 pub fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if std::env::args().find(|a| a == "--repro").is_some() {
+    if std::env::args().any(|a| a == "--repro") {
         let bin_name = args[2].clone();
         let crash_dir = args[3].clone();
         println!("Launched with {bin_name} {crash_dir}");
-        let context = fuzzer::grammar::get_cgi_context(5, bin_name.clone());
+        let context = fuzzer::grammar::get_cgi_context(50, bin_name);
         fuzzer::grammar::create_concrete_outputs(
             &context,
             std::path::PathBuf::from(crash_dir.clone()),

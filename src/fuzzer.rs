@@ -87,7 +87,7 @@ pub fn fuzz() -> Result<(), Error> {
 
     // Get the executable name, and load the nautilus context
     let bin_name = emu.binary_path().rsplit_once('/').unwrap().1;
-    let context = grammar::get_cgi_context(5, bin_name.to_string());
+    let context = grammar::get_cgi_context(50, bin_name.to_string());
 
     // find the function of interest from the loaded elf. since we're not interested in parsing
     // command line stuff every time, we'll run until main, and then set our entrypoint to be past
@@ -142,12 +142,13 @@ pub fn fuzz() -> Result<(), Error> {
     // Component: Harness
     //
 
-    let mut harness = |_input: &NautilusInput| {
+    let mut harness = |input: &NautilusInput| {
         let mut buf = vec![];
         let my_envp_write = my_envp + env_start.len() as u32;
         // Skip large inputs
         if !grammar::unparse_bounded_from_rule(
             &context,
+            input,
             &mut buf,
             MAX_ENV_SIZE - env_start.len(),
             "ENV",

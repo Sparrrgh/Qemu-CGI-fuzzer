@@ -11,16 +11,25 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 /// It will treturn false if the input is too big for the bound specified
 pub fn unparse_bounded_from_rule(
     context: &NautilusContext,
+    input: &NautilusInput,
     output_vec: &mut Vec<u8>,
     max_len: usize,
     rule: &str,
 ) -> bool {
-    // Search for the rule non-terminal
+    // Get he rule non-terminal
     let ntid = context.ctx.nt_id(rule);
-    // Create my input from context
-    let tree = context.ctx.generate_tree_from_nt(ntid, max_len);
-    let input = NautilusInput::new(tree);
-    input.unparse(context, output_vec);
+    // Search for the node corresponding to the the non-terminal
+    let id = input
+        .tree
+        .rules
+        .iter()
+        .enumerate()
+        .position(|(index, _r)| input.tree.get_nonterm_id(index.into(), &context.ctx) == ntid);
+    assert!(id.is_some(), "{rule} rule not found in tree!");
+    // Unparse the tree in the input, starting from the rule
+    input
+        .tree
+        .unparse(id.unwrap().into(), &context.ctx, output_vec);
     let old_len = output_vec.len();
     let new_len = std::cmp::min(old_len, max_len);
     output_vec.resize(new_len + 1, 0u8);
@@ -77,8 +86,8 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     // to not use grammar string
     let mut ctx = Context::new();
 
-    // This is just so Grammartec doesn't bother me because it can't find the start of the grammar
-    ctx.add_rule("START", b"");
+    // This is needed for the fuzzer to save the input that caused the crash
+    ctx.add_rule("START", b"{ENV}\n{BODY}");
 
     // POST body
     // [TODO] This doesn't handle multipart, and other types of input (ex. serialized input)

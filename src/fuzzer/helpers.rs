@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, process, str};
+use std::{env, path::PathBuf, process};
 
 use grammartec::context::Context;
 use libafl::{
@@ -44,7 +44,7 @@ where
         _observers: &mut OT,
         _exit_kind: &mut ExitKind,
     ) {
-        env::set_current_dir(&self.cwd).is_ok();
+        env::set_current_dir(&self.cwd).unwrap();
     }
 }
 
@@ -110,12 +110,13 @@ where
     }
 
     /// prepare helper for fuzz case; called before every fuzz case
-    fn pre_exec(&mut self, _emulator: &Emulator, _input: &NautilusInput) {
+    fn pre_exec(&mut self, _emulator: &Emulator, input: &NautilusInput) {
         let mut output_vec = vec![];
         // I trim for large inputs
         // [TODO] Is there a way to outright refuse the fuzzcase?
         let buf: &[u8] = if !grammar::unparse_bounded_from_rule(
             &self.context,
+            input,
             &mut output_vec,
             MAX_BODY_SIZE,
             "BODY",
