@@ -1,21 +1,18 @@
-//! A libfuzzer-like fuzzer using qemu for binary-only coverage
 #[cfg(target_os = "linux")]
 mod fuzzer;
 
 #[cfg(target_os = "linux")]
+use std::path::PathBuf;
 pub fn main() {
     let args: Vec<_> = std::env::args().collect();
-    if std::env::args().any(|a| a == "--repro") {
+    if std::env::args().any(|a| a == "--to-concrete") {
         let bin_name = args[2].clone();
         let crash_dir = args[3].clone();
-        println!("Launched with {bin_name} {crash_dir}");
+        println!(" with {bin_name} {crash_dir}");
         let context = fuzzer::grammar::get_cgi_context(50, bin_name);
-        fuzzer::grammar::create_concrete_outputs(
-            &context,
-            std::path::PathBuf::from(crash_dir.clone()),
-        );
+        fuzzer::grammar::create_concrete_outputs(&context, PathBuf::from(crash_dir.clone()));
     } else {
-        fuzzer::fuzz();
+        fuzzer::fuzz().expect("Fuzzer crashed");
     }
 }
 

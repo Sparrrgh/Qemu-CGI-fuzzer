@@ -87,7 +87,8 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     let mut ctx = Context::new();
 
     // This is needed for the fuzzer to save the input that caused the crash
-    ctx.add_rule("START", b"{ENV}\n{BODY}");
+    // FUZZTERMINATE is needed to differentiate between the ENVs and the BODY when reproducing
+    ctx.add_rule("START", b"{ENV}\nFUZZTERM\n{BODY}");
 
     // POST body
     // [TODO] This doesn't handle multipart, and other types of input (ex. serialized input)
