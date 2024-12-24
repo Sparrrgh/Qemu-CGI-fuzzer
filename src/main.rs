@@ -5,6 +5,8 @@ mod fuzzer;
 use std::path::PathBuf;
 pub fn main() {
     let args: Vec<_> = std::env::args().collect();
+    // Concretize crashes or fuzz the executable
+    // It would be better to build a separate executable 
     if std::env::args().any(|a| a == "--to-concrete") {
         let bin_name = args[2].clone();
         let crash_dir = args[3].clone();

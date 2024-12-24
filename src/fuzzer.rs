@@ -1,5 +1,5 @@
 use core::ptr::addr_of_mut;
-use std::env;
+use std::{env, fs, path::PathBuf};
 
 use libafl::{
     bolts::{
@@ -31,11 +31,15 @@ use libafl::{
     mutators::{NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator},
 };
 use libafl_qemu::{
-    asan::QemuAsanOptions,
+    // asan::QemuAsanOptions,
     edges::{edges_map_mut_slice, QemuEdgeCoverageHelper, MAX_EDGES_NUM},
     elf::EasyElf,
     mips::Regs,
-    MmapPerms, QemuAsanHelper, QemuExecutor, QemuHooks, QemuInstrumentationFilter,
+    MmapPerms,
+    QemuAsanHelper,
+    QemuExecutor,
+    QemuHooks,
+    QemuInstrumentationFilter,
 };
 
 // Own imports
@@ -97,6 +101,7 @@ pub fn fuzz() -> Result<(), Error> {
     // let main_ptr = elf.resolve_symbol("main", emu.load_addr()).unwrap();
     // [APPLICATION SPECIFIC]
     // [TODO] Cannot find main in webproc?!
+    // After module is registered
     let main_ptr = 0x004018d0_u32;
 
     // point at which we want to stop execution, i.e. after the vulnerable function
@@ -363,7 +368,7 @@ pub fn fuzz() -> Result<(), Error> {
         // Component: Mutator
         //
 
-        // Setup a mutational stage with a basic bytes mutator
+        // Setup a mutational stage
         let mutator = StdScheduledMutator::with_max_stack_pow(
             tuple_list!(
                 NautilusRandomMutator::new(&context),

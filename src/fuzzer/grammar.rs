@@ -8,7 +8,7 @@ use libafl::{
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
 /// Given a rule name it will generate a tree and unparse the input
-/// It will treturn false if the input is too big for the bound specified
+/// It will return false if the input is too big for the bound specified
 pub fn unparse_bounded_from_rule(
     context: &NautilusContext,
     input: &NautilusInput,
@@ -16,7 +16,7 @@ pub fn unparse_bounded_from_rule(
     max_len: usize,
     rule: &str,
 ) -> bool {
-    // Get he rule non-terminal
+    // Get the rule non-terminal
     let ntid = context.ctx.nt_id(rule);
     // Search for the node corresponding to the the non-terminal
     let id = input
@@ -36,7 +36,7 @@ pub fn unparse_bounded_from_rule(
     old_len <= max_len
 }
 
-// Take the entire output directory, copy all files over to a concrete directory.
+/// Takes an output directory, unparses all the crashes and stores them in a directory.
 pub fn create_concrete_outputs(context: &NautilusContext, crash_dir: PathBuf) {
     let crashes = std::fs::read_dir(crash_dir.clone()).expect("Failed to read crashes");
     let out_dir = crash_dir.join("concrete");
@@ -82,7 +82,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
         .add(b'`')
         .add(b':');
 
-    // Imitate https://github.com/AFLplusplus/LibAFL/blob/7fd9ac095241da7e65c418eeb69e058e71377f54/libafl/src/generators/nautilus.rs#L30
+    // Imitate https://github.com/AFLplusplus/LibAF L/blob/7fd9ac095241da7e65c418eeb69e058e71377f54/libafl/src/generators/nautilus.rs#L30
     // to not use grammar string
     let mut ctx = Context::new();
 
@@ -91,7 +91,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     ctx.add_rule("START", b"{ENV}\nFUZZTERM\n{BODY}");
 
     // POST body
-    // [TODO] This doesn't handle multipart, and other types of input (ex. serialized input)
+    // [TODO] This doesn't handle multipart, and other types of input (JSON, etc..)
     ctx.add_rule("BODY", b"{BODY_PAIR}");
     ctx.add_rule("BODY", b"{BODY}&{BODY_PAIR}");
 
@@ -113,7 +113,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
         b"REMOTE_ADDR={REMOTE_ADDR}\0HTTP_HOST={HTTP_HOST}\0REQUEST_METHOD={REQUEST_METHOD}\0SCRIPT_NAME={SCRIPT_NAME}\0CONTENT_LENGTH={CONTENT_LENGTH}\0CONTENT_TYPE={CONTENT_TYPE}\0QUERY_STRING={QUERY_STRING}\0HTTP_COOKIE={HTTP_COOKIE}",
     );
 
-    // REMOTE_ADDR
+    // REMOTE_ADDRD
     // I wanted to use a regex for this, but it's too expensive for the final result
     for ip in [
         "192.168.0.1",
@@ -134,8 +134,9 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     ctx.add_rule("HTTP_HOST", b"{STRING}:{PORT}");
 
     // REQUEST_METHOD
+    // reduced for performance reasons
     for elem in [
-        "GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH",
+        "GET", "POST",
     ] {
         ctx.add_rule("REQUEST_METHOD", elem.as_bytes());
     }
@@ -172,6 +173,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     }
 
     // HTTP_COOKIE
+    // [APPLICATION SPECIFIC] These are the cookies used by webproc
     ctx.add_rule(
         "HTTP_COOKIE",
         b"sessionid={STRING};language={STRING};sys_UserName={STRING};",
@@ -180,7 +182,9 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     // ----Base types----
     // On my laptop it takes a long time to create the grammar with u32
     // On the server it might be worth to wait those few minutes on a long campaign
-    for i in 0..u32::MAX {
+    // Overrall I don't think fuzzing for all possible grammar possibilities is useful
+    // It might be better to just choose meaningful ints and use those 
+    for i in 0..u16::MAX {
         ctx.add_rule("POS_INT", format!("{i}").as_bytes());
     }
 

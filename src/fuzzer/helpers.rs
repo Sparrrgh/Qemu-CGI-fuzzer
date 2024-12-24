@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, process};
+use std::{env, path::PathBuf, process, str};
 
 use grammartec::context::Context;
 use libafl::{
@@ -36,7 +36,8 @@ where
         self.restore(emulator);
     }
 
-    /// restore PWD after execution
+    // [APPLICATION SPECIFIC]
+    // restore PWD after execution
     fn post_exec<OT>(
         &mut self,
         _emulator: &Emulator,
@@ -159,6 +160,7 @@ where
     S: UsesInput<Input = NautilusInput>,
 {
     // [TODO] Hook open so it doesn't read from root!
+    // Maybe it's better to simply use chroot?
     let syscall = syscall as i64;
     match syscall {
         // since calls to exit are verboten, hook the relevant syscalls and abort instead
@@ -166,29 +168,32 @@ where
             process::abort();
         }
         // Don't let the fuzzer create or open files outside of the `/build` folder
-        // SYS_open | SYS_creat => {
-        //     let path_addr = hooks.emulator().read_reg(Regs::A0).unwrap();
-        //     let mut path = [0; 256];
-        //     unsafe {
-        //         hooks.emulator().read_mem(path_addr, &mut path);
-        //     }
-        //     if path[0] == b'/' {
-        //         let cwd = env::current_dir()
-        //             .unwrap()
-        //             .into_os_string()
-        //             .into_string()
-        //             .unwrap();
-        //         let new_root = cwd.strip_suffix("/usr/www/cgi-bin").unwrap();
-        //         let path_utf8 = str::from_utf8(&path).unwrap();
-        //         let new_path = format!("{new_root}{path_utf8}");
-        //         unsafe {
-        //             hooks
-        //                 .emulator()
-        //                 .write_mem(path_addr, &mut new_path.as_bytes());
-        //         }
-        //     }
-        //     SyscallHookResult::new(None)
-        // }
+        SYS_open | SYS_creat => {
+            let path_addr = hooks.emulator().read_reg(Regs::A0).unwrap();
+            let mut path = [0; 256];
+            unsafe {
+                hooks.emulator().read_mem(path_addr, &mut path);
+            }
+
+            if path[0] == b'/' {
+                if !path.starts_with(b"/proc") {
+                    let cwd = env::current_dir()
+                        .unwrap()
+                        .into_os_string()
+                        .into_string()
+                        .unwrap();
+                    let new_root = cwd.strip_suffix("/usr/www/cgi-bin").unwrap();
+                    let path_utf8 = str::from_utf8(&path).unwrap();
+                    let new_path = format!("{new_root}{path_utf8}");
+                    unsafe {
+                        hooks
+                            .emulator()
+                            .write_mem(path_addr, &mut new_path.as_bytes());
+                    }
+                }
+            }
+            SyscallHookResult::new(None)
+        }
         // If stdin
         sysnum if (sysnum == SYS_read && a0 == 0) => {
             let fs_helper = hooks
