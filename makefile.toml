@@ -24,26 +24,34 @@ args = ["-rf", "build/"]
 # build tasks
 [tasks.build-cargo]
 toolchain = "nightly"
-env = { CROSS_CC = "mips-linux-gnu-gcc" }
+# env = { CROSS_CC = "mips-linux-gnu-gcc" }
 command = "cargo"
-args = ["build", "--release"]
+args = [
+  "build",
+  "--profile",
+  "${PROFILE}",
+  "--features",
+  "${FEATURE}",
+  "--target-dir",
+  "${TARGET_DIR}",
+]
 
 [tasks.build-directories]
 command = "mkdir"
-args = ["-p", "build", "build/lib", "build/bin", "solutions", "solutions/concrete"]
+args = ["-p", "build", "build/lib", "build/bin", "solutions", "solutions/concrete", "${TARGET_DIR}"]
 
 [tasks.copy-lib-to-build]
 command = "cp"
 args = [
-    "target/release/qemu-libafl-bridge/build/libqemu-mips.so",
-    "target/release/libqasan.so",
+    "target/qemu-libafl-bridge/build/libqemu-mips.so",
+    "target/mips/release/libqasan.so",
     "build/lib",
 ]
 
 [tasks.copy-bin-to-build]
 command = "cp"
 args = [
-    "target/release/qemu_mips_cgi",
+    "target/mips/release/qemu_mips_cgi",
     "build/bin",
 ]
 
@@ -60,3 +68,15 @@ dependencies = [
 env = { CROSS_CC = "mips-linux-gnu-gcc" }
 command = "cargo"
 args = ["clippy", "--all"]
+
+[env]
+PROFILE = { value = "release", condition = { env_not_set = ["PROFILE"] } }
+PROFILE_DIR = { source = "${PROFILE}", default_value = "release", mapping = { "release" = "release", "dev" = "debug" }, condition = { env_not_set = [
+  "PROFILE_DIR",
+] } } 
+CROSS_CC = "mips-linux-gnu-gcc"
+CROSS_CXX = "mips-linux-gnu-g++"
+CROSS_CFLAGS = ""
+TARGET_DIR = "${CARGO_MAKE_CRATE_TARGET_DIRECTORY}/mips"
+FEATURE = "mips be"
+LIBAFL_QEMU_CLONE_DIR = "${CARGO_MAKE_CRATE_TARGET_DIRECTORY}/qemu-libafl-bridge"

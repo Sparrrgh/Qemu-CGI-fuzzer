@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use grammartec::{context::Context, tree::TreeLike};
 use libafl::{
+    common::nautilus::grammartec::{context::Context, tree::TreeLike},
     generators::NautilusContext,
     inputs::{Input, NautilusInput},
 };
@@ -135,9 +135,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
 
     // REQUEST_METHOD
     // reduced for performance reasons
-    for elem in [
-        "GET", "POST",
-    ] {
+    for elem in ["GET", "POST"] {
         ctx.add_rule("REQUEST_METHOD", elem.as_bytes());
     }
 
@@ -183,7 +181,7 @@ pub fn get_cgi_context(tree_depth: usize, bin_name: String) -> NautilusContext {
     // On my laptop it takes a long time to create the grammar with u32
     // On the server it might be worth to wait those few minutes on a long campaign
     // Overrall I don't think fuzzing for all possible grammar possibilities is useful
-    // It might be better to just choose meaningful ints and use those 
+    // It might be better to just choose meaningful ints and use those
     for i in 0..u16::MAX {
         ctx.add_rule("POS_INT", format!("{i}").as_bytes());
     }

@@ -1,7 +1,7 @@
 [package]
 name = "qemu_mips_cgi"
-version = "0.9.0"
-authors = ["Max Bellia <ma.bellia.98@gmail.com>"]
+version = "0.14.1"
+authors = ["Max Bellia <max@sparrrgh.me>"]
 edition = "2021"
 
 [profile.release]
@@ -10,9 +10,21 @@ edition = "2021"
 #opt-level = 3
 debug = true
 
+[features]
+default = ["std"]
+std = []
+be = ["libafl_qemu/be"]
+mips = ["libafl_qemu/mips"]
+
+[build-dependencies]
+vergen = { version = "9.0.1", features = ["build", "cargo", "rustc", "si"] }
+vergen-git2 = "1.0.1"
+
 [dependencies]
-libafl = { path = "../../libafl/", features = ["default", "nautilus", "qemu_cli"]}
-libafl_qemu = { path = "../../libafl_qemu/", features = ["mips", "be", "usermode"] }
-rangemap = "1.0.3"
-grammartec = "0.3.0"
+clap = { version = "4.5.18", features = ["derive", "string"] }
+libafl = { version = "0.14.1", features = ["default", "nautilus", "qemu_cli"]}
+libafl_bolts = { version = "0.14.1", features = ["prelude"]}
+libafl_qemu = { version = "0.14.1", features = ["usermode"] }
+libafl_targets = { version = "0.14.1" }
+rangemap = { version = "1.3" }
 percent-encoding = "2.2.0"

@@ -1,26 +1,20 @@
 use core::ptr::addr_of_mut;
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf, time::Duration};
 
 use libafl::{
-    bolts::{
-        cli, current_nanos,
-        launcher::Launcher,
-        rands::StdRand,
-        shmem::{ShMemProvider, StdShMemProvider},
-        tuples::tuple_list,
-    },
+    common::HasMetadata,
     corpus::{Corpus, OnDiskCorpus},
-    events::EventConfig,
-    executors::{ExitKind, TimeoutExecutor},
+    events::{launcher::Launcher, EventConfig},
+    executors::ExitKind,
     feedback_and_fast, feedback_or,
     feedbacks::{CrashFeedback, MaxMapFeedback, TimeFeedback},
     fuzzer::{Fuzzer, StdFuzzer},
     monitors::MultiMonitor,
     mutators::StdScheduledMutator,
-    observers::{HitcountsMapObserver, TimeObserver, VariableMapObserver},
+    observers::{CanTrack, HitcountsMapObserver, TimeObserver, VariableMapObserver},
     schedulers::{IndexesLenTimeMinimizerScheduler, QueueScheduler},
     stages::StdMutationalStage,
-    state::{HasCorpus, HasMetadata, StdState},
+    state::{HasCorpus, StdState},
     Error,
 };
 // Nautilus imports
@@ -30,17 +24,18 @@ use libafl::{
     inputs::NautilusInput,
     mutators::{NautilusRandomMutator, NautilusRecursionMutator, NautilusSpliceMutator},
 };
-use libafl_qemu::{
-    // asan::QemuAsanOptions,
-    edges::{edges_map_mut_slice, QemuEdgeCoverageHelper, MAX_EDGES_NUM},
-    elf::EasyElf,
-    mips::Regs,
-    MmapPerms,
-    QemuAsanHelper,
-    QemuExecutor,
-    QemuHooks,
-    QemuInstrumentationFilter,
+use libafl_bolts::{
+    cli, current_nanos,
+    ownedref::OwnedMutSlice,
+    rands::StdRand,
+    shmem::{ShMemProvider, StdShMemProvider},
+    tuples::tuple_list,
 };
+use libafl_qemu::{
+    arch::mips::Regs, elf::EasyElf, Emulator, EmulatorHooks, GuestAddr, MmapPerms, Qemu,
+    QemuExecutor,
+};
+use libafl_targets::{edges_map_mut_ptr, EDGES_MAP_DEFAULT_SIZE, MAX_EDGES_FOUND};
 
 // Own imports
 pub mod grammar;
@@ -82,15 +77,15 @@ pub fn fuzz() -> Result<(), Error> {
 
     // create an Emulator which provides the methods necessary to interact with the emulated target
     // let emu = libafl_qemu::init_with_asan(&mut fuzzer_options.qemu_args, &mut env);
-    let emu = libafl_qemu::Emulator::new(&mut fuzzer_options.qemu_args, &mut env);
+    let qemu = Qemu::init(&mut fuzzer_options.qemu_args)?;
 
     // load our fuzz target from disk, the resulting `EasyElf` is used to do symbol lookups on  the
     // binary. It handles address resolution in the case of PIE as well.
     let mut buffer = Vec::new();
-    let elf = EasyElf::from_file(emu.binary_path(), &mut buffer)?;
+    let elf = EasyElf::from_file(qemu.binary_path(), &mut buffer)?;
 
     // Get the executable name, and load the nautilus context
-    let bin_name = emu.binary_path().rsplit_once('/').unwrap().1;
+    let bin_name = qemu.binary_path().rsplit_once('/').unwrap().1;
     let context = grammar::get_cgi_context(50, bin_name.to_string());
 
     // find the function of interest from the loaded elf. since we're not interested in parsing
@@ -102,20 +97,20 @@ pub fn fuzz() -> Result<(), Error> {
     // [APPLICATION SPECIFIC]
     // [TODO] Cannot find main in webproc?!
     // After module is registered
-    let main_ptr = 0x004018d0_u32;
+    let main_ptr = 0x004018d0 as GuestAddr;
 
     // point at which we want to stop execution, i.e. after the vulnerable function
     // [APPLICATION SPECIFIC]
     // Before module is unregistered
-    let ret_addr = 0x004022c0_u32;
+    let ret_addr = 0x004022c0 as GuestAddr;
 
     // set a breakpoint on the function of interest and emulate execution until we arrive there
-    emu.set_breakpoint(main_ptr);
-    unsafe { emu.run() };
-    emu.remove_breakpoint(main_ptr);
+    qemu.set_breakpoint(main_ptr);
+    unsafe { qemu.run() };
+    qemu.remove_breakpoint(main_ptr);
 
     // Reserve space for the enviroment variables set by the harness
-    let my_envp = emu
+    let my_envp = qemu
         .map_private(0, MAX_ENV_SIZE, MmapPerms::ReadWrite)
         .unwrap();
     // let cwd = env::current_dir()?.into_os_string().into_string().unwrap();
@@ -136,60 +131,61 @@ pub fn fuzz() -> Result<(), Error> {
 
     // Write the start of the env once, at the start of the reserved space
     unsafe {
-        emu.write_mem(my_envp, env_start.as_bytes());
+        qemu.write_mem(my_envp, env_start.as_bytes());
     }
 
     // reset breakpoint from start of the function to the place we want to stop, registers will
     // all be saved off in `QemuGPRegisterHelper::pre_exec`
-    emu.set_breakpoint(ret_addr);
+    qemu.set_breakpoint(ret_addr);
 
     //
     // Component: Harness
     //
 
-    let mut harness = |input: &NautilusInput| {
-        let mut buf = vec![];
-        let my_envp_write = my_envp + env_start.len() as u32;
-        // Skip large inputs
-        if !grammar::unparse_bounded_from_rule(
-            &context,
-            input,
-            &mut buf,
-            MAX_ENV_SIZE - env_start.len(),
-            "ENV",
-        ) {
-            return ExitKind::Ok;
-        }
+    let mut harness =
+        |_emulator: &mut Emulator<_, _, _, _, _>, _state: &mut _, input: &NautilusInput| {
+            let mut buf = vec![];
+            let my_envp_write = my_envp + env_start.len() as GuestAddr;
+            // Skip large inputs
+            if !grammar::unparse_bounded_from_rule(
+                &context,
+                input,
+                &mut buf,
+                MAX_ENV_SIZE - env_start.len(),
+                "ENV",
+            ) {
+                return ExitKind::Ok;
+            }
 
-        // At the start of the main `a2` contains the pointer to the start of env array
-        let start_array: u32 = u32::from_be(emu.read_reg(Regs::A2).unwrap());
-        // println!("Start of array is at {start_array:#X}");
+            // At the start of the main `a2` contains the pointer to the start of env array
+            let start_array: GuestAddr = GuestAddr::from_be(qemu.read_reg(Regs::A2).unwrap());
+            // println!("Start of array is at {start_array:#X}");
 
-        // Build my env array
-        // First search for each nullbyte in the env
-        // Then use the start of each string to create a pointer to it
-        // Checking the index using nullbytes is not really smart, it might mutate and throw me way off
-        let my_env_array_buf = &buf
-            .iter()
-            .enumerate()
-            .filter(|(_, &b)| b == 0)
-            .map(|(index, _)| (index + env_start.len() + 1) as u32)
-            .chain(env_start_indexes.clone())
-            .flat_map(|offset| u32::to_be_bytes(my_envp + offset))
-            .chain(u32::to_be_bytes(0))
-            .collect::<Vec<u8>>()[..];
+            // Build my env array
+            // First search for each nullbyte in the env
+            // Then use the start of each string to create a pointer to it
+            // Checking the index using nullbytes is not really smart, it might mutate and throw me way off
+            let my_env_array_buf = &buf
+                .iter()
+                .enumerate()
+                .filter(|(_, &b)| b == 0)
+                .map(|(index, _)| (index + env_start.len() + 1) as u32)
+                .chain(env_start_indexes.clone())
+                .flat_map(|offset| GuestAddr::to_be_bytes(my_envp + offset))
+                .chain(GuestAddr::to_be_bytes(0))
+                .collect::<Vec<u8>>()[..];
 
-        // Writing this in the process stack can corrupt some stuff if I inject a lot of different variables
-        // I could write a check on the first execution so that I verify how many envs I can actually write
-        unsafe { emu.write_mem(start_array, my_env_array_buf) };
+            // Writing this in the process stack can corrupt some stuff if I inject a lot of different variables
+            // I could write a check on the first execution so that I verify how many envs I can actually write
+            unsafe { qemu.write_mem(start_array, my_env_array_buf) };
 
-        unsafe {
-            emu.write_mem(my_envp_write, &buf);
-            emu.run();
+            unsafe {
+                qemu.write_mem(my_envp_write, &buf);
+                qemu.run();
+            };
+
+            ExitKind::Ok
         };
-
-        ExitKind::Ok
-    };
 
     //
     // Component: Client Runner
@@ -204,12 +200,13 @@ pub fn fuzz() -> Result<(), Error> {
         //
         // the `libafl_qemu::edges` module re-exports the same `EDGES_MAP` and `MAX_EDGES_NUM`
         // from `libafl_targets`, meaning we're using the sancov backend for coverage
-        let edges_observer = unsafe {
+        let mut edges_observer = unsafe {
             HitcountsMapObserver::new(VariableMapObserver::from_mut_slice(
                 "edges",
-                edges_map_mut_slice(),
-                addr_of_mut!(MAX_EDGES_NUM),
+                OwnedMutSlice::from_raw_parts_mut(edges_map_mut_ptr(), EDGES_MAP_DEFAULT_SIZE),
+                &raw mut MAX_EDGES_FOUND,
             ))
+            .track_indices()
         };
 
         // Create an observation channel to keep track of the execution time and previous runtime
@@ -231,11 +228,11 @@ pub fn fuzz() -> Result<(), Error> {
             // New maximization map feedback (attempts to maximize the map contents) linked to the
             // edges observer and the feedback state. This one will track indexes, but will not track
             // novelties, i.e. new_tracking(... true, false).
-            MaxMapFeedback::new_tracking(&edges_observer, true, false),
+            MaxMapFeedback::new(&edges_observer),
             // Time feedback, this one does not need a feedback state, nor does it ever return true for
             // is_interesting, However, it does keep track of testcase execution time by way of its
             // TimeObserver
-            TimeFeedback::with_observer(&time_observer),
+            TimeFeedback::new(&time_observer),
             // Nautilus Feedback
             NautilusFeedback::new(&context)
         );
@@ -284,7 +281,11 @@ pub fn fuzz() -> Result<(), Error> {
         });
 
         // Save metadata in tmpfs
-        if state.metadata().get::<NautilusChunksMetadata>().is_none() {
+        if state
+            .metadata_map()
+            .get::<NautilusChunksMetadata>()
+            .is_none()
+        {
             state.add_metadata(NautilusChunksMetadata::new("/dev/shm/".into()));
         }
 
@@ -299,7 +300,8 @@ pub fn fuzz() -> Result<(), Error> {
         // entries registered in the MapIndexesMetadata
         //
         // a QueueCorpusScheduler walks the corpus in a queue-like fashion
-        let scheduler = IndexesLenTimeMinimizerScheduler::new(QueueScheduler::new());
+        let scheduler =
+            IndexesLenTimeMinimizerScheduler::new(&edges_observer, QueueScheduler::new());
 
         //
         // Component: Fuzzer
@@ -311,20 +313,21 @@ pub fn fuzz() -> Result<(), Error> {
         // Component: Executor
         //
 
-        // the QemuHooks struct wraps the emulator and all the QemuHelpers we want to use during fuzzing
-        let mut hooks = QemuHooks::new(
-            &emu,
+        // Modules for qemu
+        let modules = {
             tuple_list!(
-                QemuEdgeCoverageHelper::new(QemuInstrumentationFilter::None),
-                QemuGPResetHelper::new(&emu),
+                // QemuEdgeCoverageHelper::new(QemuInstrumentationFilter::None),
+                QemuGPResetHelper::new(&qemu),
                 // There isn't really an alternative to this, since context has to be a static borrow
                 QemuFakeStdinHelper::new(context.ctx.clone()),
                 // QemuAsanHelper::new(
                 //     QemuInstrumentationFilter::None,
                 //     QemuAsanOptions::DetectLeaks
                 // ),
-            ),
-        );
+            )
+        };
+
+        let emulator = Emulator::empty().qemu(qemu).modules(modules).build()?;
 
         // Create an in-process executor backed by QEMU. The QemuExecutor wraps the
         // `InProcessExecutor`, all of the `QemuHelper`s and the `Emulator` (in addition to the
@@ -334,17 +337,18 @@ pub fn fuzz() -> Result<(), Error> {
         //
         // additionally, each of the helpers and the emulator will be accessible at other points
         // of execution, easing emulator/input interaction/modification
-        let executor = QemuExecutor::new(
-            &mut hooks,
+
+        let timeout = Duration::from_secs(5);
+
+        let mut executor = QemuExecutor::new(
+            emulator,
             &mut harness,
             tuple_list!(edges_observer, time_observer),
             &mut fuzzer,
             &mut state,
             &mut mgr,
+            timeout,
         )?;
-
-        // wrap the `QemuExecutor` with a `TimeoutExecutor` that sets a timeout before each run
-        let mut executor = TimeoutExecutor::new(executor, fuzzer_options.timeout);
 
         let mut generator = NautilusGenerator::new(&context);
 
