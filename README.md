@@ -27,14 +27,28 @@ Directory containing the solutions to concretize
 
 ## Reproduce a crash using repro.py
 This requires `qemu-mips` installed on the system.
+```
+usage: repro.py [-h] -c CRASHFILE -b BIN [-r ROOTDIR] [--logfile LOGFILE] [-g]
 
-After concretizing the crashes as described before, 
+Reproduce crashes from concretized inputs
 
+options:
+  -h, --help            show this help message and exit
+  -c CRASHFILE, --crashfile CRASHFILE
+                        concretized crash file to use as input
+  -b BIN, --bin BIN     path to binary to test
+  -r ROOTDIR, --rootdir ROOTDIR
+                        root directory of the firmware (default: /build)
+  --logfile LOGFILE     output file containing strace information
+  -g                    enable GDB on port 999
+  ```
+
+After concretizing the crashes as described before, run the repro script.
 An example command could be:
 
-`python3 repro.py -c solutions/concrete/id\:3-5 --bin build/usr/www/cgi-bin/webproc --logfile reprologs.txt -g`
+`python3 repro.py -c solutions/concrete/id\:3-5 --bin build/usr/www/cgi-bin/webproc --logfile strace_logs.txt`
 
-You can then use `gdb-multiarch` to debug the executable.
+You can use `gdb-multiarch` to debug the executable (if `-g` is used).
 - Set architecture with `set arch mips`
 - Set endianess with `set endian big`
 - Set target with `target remote localhost:9999`

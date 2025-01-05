@@ -1,17 +1,19 @@
 #!/usr/bin/python3
 from time import sleep
-from subprocess import Popen, PIPE
+from subprocess import run, PIPE
 import argparse
 
 parser = argparse.ArgumentParser(
                     prog='repro.py',
-                    description='Reproduce crashes from concretized inputs',
-                    epilog='Text at the bottom of help')
-parser.add_argument('-f', '--filename', help='concretized input used for the crash', required=True)
-parser.add_argument('-b', '--bin', help='binary to test the crash on', required=True)
+                    description='Reproduce crashes from concretized inputs'
+                    )
+parser.add_argument('-c', '--crashfile', help='concretized crash file to use as input', required=True)
+parser.add_argument('-b', '--bin', help='path to binary to test', required=True)
+parser.add_argument('-r', '--rootdir', help='root directory of the firmware (default: /build)', default="build")
+parser.add_argument('--logfile', help='output file containing strace information')
 parser.add_argument('-g', help='enable GDB on port 9999', action='store_true')
 args = parser.parse_args()
-with open(args.filename) as f: 
+with open(args.crashfile) as f: 
     contents = f.read()
     # Get body and env from file
     env, terminator, body = contents.partition("\nFUZZTERM\n")
@@ -23,12 +25,13 @@ with open(args.filename) as f:
     print(f"ENV: {env}")
     print(f"Body: {body}")
     print("\nProgram output:")
-    # Build popone arr, to have the correct options
+    # Build popopen arrary, to have the correct options
     # Make it possible to just send options to qemu?
-    popen_arr = ["qemu-mips", "-L", "../../../", "--strace", "-D", "reprologs.txt"]
+    popen_arr = ["qemu-mips", "-L", args.rootdir]
+    if (args.logfile):
+        popen_arr.extend(["--strace", "-D", args.logfile])
     if args.g:
         popen_arr.extend(["-g", "9999"])
     popen_arr.append(args.bin)
-    with Popen(popen_arr, env=mod_env, stdin=PIPE, stdout=PIPE) as p:
-        stdout_data = p.communicate(input=body.encode("UTF-8"))[0]
-        print(stdout_data.decode("UTF-8"))
+    p = run(popen_arr, env=mod_env, input=body, encoding="ascii", stdout=PIPE)
+    print(p.stdout)
