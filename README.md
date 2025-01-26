@@ -2,13 +2,13 @@
 Fuzzer for CGI binaries written using LibAFL.
 
 > [!WARNING]  
-> This fuzzer is not generalized, it was made to test the *webproc* and *webupg* executables as described belonging to the DSL-3788 binary from D-Link. You will need to tweak the grammar if you want significant results with other targets. For this reason I tried putting \[APPLICATION SPECIFIC\] tags wherever the code is not applicable for other targets.
+> This fuzzer is not generalized, it was made to test the *webproc* and *webupg* executables belonging to the DSL-3788 binary from D-Link. You will need to tweak the grammar if you want significant results with other targets. For this reason I tried putting \[APPLICATION SPECIFIC\] tags wherever the code is not applicable for other targets.
 
 I used [epi052 solutions to domenukk fuzzing101 exercises](https://github.com/epi052/fuzzing-101-solutions/) as a base for a lot of the fuzzer and took heavy inspiration from [TrackMania fuzzer](https://github.com/RickdeJager/TrackmaniaFuzzer/) for the grammar part.
 
 This fuzzer originally used a **custom version** of LibAFL 0.8.2 which added support for the MIPS architecture (at the time I used cargo 1.68.0-nightly). I ported it to work with version 0.14.1 of LibAFL with **minimal** testing (read, it might break).
 
-It's development and triage of a vulnerability (for which it's still awaiting a CVE-id) found using it is described in [this blog post](https://blog.sparrrgh.me/fuzzing/embedded/2025/01/26/fuzzing-embedded-systems-2.html).
+Its development and triage of a vulnerability found using it (for which I'm still waiting for CVE-id) is described in [this blog post](https://blog.sparrrgh.me/fuzzing/embedded/2025/01/26/fuzzing-embedded-systems-2.html).
 
 ## To build
 `cargo make --makefile makefile.toml build`
