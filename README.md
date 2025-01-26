@@ -2,7 +2,7 @@
 Fuzzer for CGI binaries written using LibAFL.
 
 > [!WARNING]  
-> This fuzzer is not generalized, it was made to test the *webproc* and *webupg* executables belonging to the DSL-3788 binary from D-Link. You will need to tweak the grammar if you want significant results with other targets. For this reason I tried putting \[APPLICATION SPECIFIC\] tags wherever the code is not applicable for other targets.
+> This fuzzer is not generalized, it was made to test the *webproc* and *webupg* executables belonging to the DSL-3788 router from D-Link. You will need to tweak the grammar if you want significant results with other targets. For this reason I tried putting \[APPLICATION SPECIFIC\] tags wherever the code is not applicable for other targets.
 
 I used [epi052 solutions to domenukk fuzzing101 exercises](https://github.com/epi052/fuzzing-101-solutions/) as a base for a lot of the fuzzer and took heavy inspiration from [TrackMania fuzzer](https://github.com/RickdeJager/TrackmaniaFuzzer/) for the grammar part.
 
