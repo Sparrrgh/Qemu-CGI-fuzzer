@@ -6,7 +6,7 @@ Fuzzer for CGI binaries written using LibAFL.
 
 I used [epi052 solutions to domenukk fuzzing101 exercises](https://github.com/epi052/fuzzing-101-solutions/) as a base for a lot of the fuzzer and took heavy inspiration from [TrackMania fuzzer](https://github.com/RickdeJager/TrackmaniaFuzzer/) for the grammar part.
 
-This fuzzer originally used a custom version of LibAFL 0.8.2 which added support for the MIPS architecture. I ported it to work with version 0.14.1 of LibAFL with **minimal** testing.
+This fuzzer originally used a **custom version** of LibAFL 0.8.2 which added support for the MIPS architecture (at the time I used cargo 1.68.0-nightly). I ported it to work with version 0.14.1 of LibAFL with **minimal** testing (read, it might break).
 
 ## To build
 `cargo make --makefile makefile.toml build`
@@ -14,15 +14,22 @@ This fuzzer originally used a custom version of LibAFL 0.8.2 which added support
 ## To run
 Recreate the relevant directory structure of the firmware (mainly */bin*, */lib* and */usr*), inside the directory */build*.
 
-cd in `/build`
+Then inside the ***/build*** directory run the following command:
 
-Run the following command
 `LD_LIBRARY_PATH= ./bin/qemu_mips_cgi --cores 1 --stdout ../fuzzer_logs.txt -o ../solutions  -- ./bin/qemu_mips_cgi --strace -L . -D strace_logs.txt ./usr/www/cgi-bin/webproc`
 
-## Make file concrete
-Name of binary (used in creation of grammar, especially of environment variables)
-Directory containing the solutions to concretize
+This will fuzz the executable found at ***./usr/www/cgi-bin/webproc*** and save the output of the fuzzer in a file called ***fuzzer_logs.txt***, output your crashes in the ***/solutions*** directory and output the strace logs (for **debugging** purposes, for higher perf I suggest to disable this) in ***strace_logs.txt***
 
+## Make file concrete
+The outputs aved in */solutions* is a representation of derivation trees used by **Nautilus**, it must be concretized to triage the findings.
+
+To concretize, run the binary with the `--to-concrete` flag.
+
+`./build/bin/qemu_mips_cgi --to-concrete <binary_name> <crash_directory>`
+
+This will create a ***/concrete*** subdirectory in the crash directory specified, containing all the concretized crashes.
+
+Example using *webproc*, with the default directory structure:
 `./build/bin/qemu_mips_cgi --to-concrete webproc solutions`
 
 ## Reproduce a crash using repro.py
@@ -49,6 +56,6 @@ An example command could be:
 `python3 repro.py -c solutions/concrete/id\:3-5 --bin build/usr/www/cgi-bin/webproc --logfile strace_logs.txt`
 
 You can use `gdb-multiarch` to debug the executable (if `-g` is used).
-- Set architecture with `set arch mips`
-- Set endianess with `set endian big`
-- Set target with `target remote localhost:9999`
+1. Set architecture with `set arch mips`
+2. Set endianess with `set endian big`
+3. Set target with `target remote localhost:9999`
