@@ -6,7 +6,7 @@ Fuzzer for CGI binaries written using LibAFL.
 
 I used [epi052 solutions to domenukk fuzzing101 exercises](https://github.com/epi052/fuzzing-101-solutions/) as a base for a lot of the fuzzer and took heavy inspiration from [TrackMania fuzzer](https://github.com/RickdeJager/TrackmaniaFuzzer/) for the grammar part.
 
-This fuzzer originally used a **custom version** of LibAFL 0.8.2 which added support for the MIPS architecture (at the time I used cargo 1.68.0-nightly). I ported it to work with version 0.14.1 of LibAFL with **minimal** testing (read, it might break).
+This fuzzer originally used a **custom version** of LibAFL 0.8.2 which I added support for the MIPS architecture (at the time I used cargo 1.68.0-nightly). I ported it to work with version 0.14.1 of LibAFL with **minimal** testing (reads, it might break).
 
 Its development and triage of a vulnerability found using it (for which I'm still waiting for CVE-id) is described in [this blog post](https://blog.sparrrgh.me/fuzzing/embedded/2025/01/26/fuzzing-embedded-systems-2.html).
 
@@ -20,10 +20,10 @@ Then inside the ***/build*** directory run the following command:
 
 `LD_LIBRARY_PATH= ./bin/qemu_mips_cgi --cores 1 --stdout ../fuzzer_logs.txt -o ../solutions  -- ./bin/qemu_mips_cgi --strace -L . -D strace_logs.txt ./usr/www/cgi-bin/webproc`
 
-This will fuzz the executable found at ***./usr/www/cgi-bin/webproc*** and save the output of the fuzzer in a file called ***fuzzer_logs.txt***, output your crashes in the ***/solutions*** directory and output the strace logs (for **debugging** purposes, for higher perf I suggest to disable this) in ***strace_logs.txt***
+This will fuzz the executable found at ***./usr/www/cgi-bin/webproc*** and save the output of the fuzzer in a file called ***fuzzer_logs.txt***, output your crashes in the ***/solutions*** directory and output the strace logs (for **debugging** purposes, for higher performance I suggest to disable it) in ***strace_logs.txt***
 
 ## Make file concrete
-The outputs aved in */solutions* is a representation of derivation trees used by **Nautilus**, it must be concretized to triage the findings.
+The output saved in */solutions* is a representation of derivation trees used by **Nautilus**, it must be concretized to triage the findings.
 
 To concretize, run the binary with the `--to-concrete` flag.
 
