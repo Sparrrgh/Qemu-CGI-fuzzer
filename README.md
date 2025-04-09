@@ -8,7 +8,7 @@ I used [epi052 solutions to domenukk fuzzing101 exercises](https://github.com/ep
 
 This fuzzer originally used a **custom version** of LibAFL 0.8.2 which I added support for the MIPS architecture (at the time I used cargo 1.68.0-nightly). I ported it to work with version 0.14.1 of LibAFL with **minimal** testing (reads, it might break).
 
-Its development and triage of a vulnerability found using it (for which I'm still waiting for CVE-id) is described in [this blog post](https://blog.sparrrgh.me/fuzzing/embedded/2025/01/26/fuzzing-embedded-systems-2.html).
+Its development and triage of a vulnerability found using it (CVE-2024-57440) is described in [this blog post](https://blog.sparrrgh.me/fuzzing/embedded/2025/01/26/fuzzing-embedded-systems-2.html).
 
 ## To build
 `cargo make --makefile makefile.toml build`
